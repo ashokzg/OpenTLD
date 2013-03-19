@@ -31,41 +31,47 @@
 #include "TLDUtil.h"
 
 using namespace tld;
-using namespace cv;
+Mat* greyRef;
+FILE *resultsFile = NULL;
 
-void Main::doWork()
+void Main::doWork(OpenTLD::Dest userDest, Mat img)
 {
 
-    IplImage *img = imAcqGetImg(imAcq);
-    Mat grey(img->height, img->width, CV_8UC1);
-    cvtColor(cv::Mat(img), grey, CV_BGR2GRAY);
+    //IplImage *img = imAcqGetImg(imAcq);
+	static Mat grey(img.rows, img.cols, CV_8UC1);
+	greyRef = &grey;
+    cvtColor(img, grey, CV_BGR2GRAY);
 
     tld->detectorCascade->imgWidth = grey.cols;
     tld->detectorCascade->imgHeight = grey.rows;
     tld->detectorCascade->imgWidthStep = grey.step;
 
-    if(selectManually)
+    if(userDest.destPresent == true)
     {
-
+    	printf("Came here");
         CvRect box;
-
-        if(getBBFromUser(img, box, gui) == PROGRAM_EXIT)
-        {
-            return;
-        }
 
         if(initialBB == NULL)
         {
             initialBB = new int[4];
         }
 
-        initialBB[0] = box.x;
-        initialBB[1] = box.y;
-        initialBB[2] = box.width;
-        initialBB[3] = box.height;
+        if(box.width == 0 || box.height == 0)
+        {
+        	printf("Some problem with the bounding box selection");
+        	box.width = 50;
+        	box.height = 50;
+        }
+
+        initialBB[0] = userDest.destX;
+        initialBB[1] = userDest.destY;
+        initialBB[2] = userDest.destWidth;
+        initialBB[3] = userDest.destHeight;
+        userDest.destPresent = false;
+        printf("W, H: %d %d", initialBB[2], initialBB[3]);
     }
 
-    FILE *resultsFile = NULL;
+
 
     if(printResults != NULL)
     {
@@ -75,12 +81,8 @@ void Main::doWork()
     bool reuseFrameOnce = false;
     bool skipProcessingOnce = false;
 
-    if(loadModel && modelPath != NULL)
-    {
-        tld->readFromFile(modelPath);
-        reuseFrameOnce = true;
-    }
-    else if(initialBB != NULL)
+
+    if(initialBB != NULL)
     {
         Rect bb = tldArrayToRect(initialBB);
 
@@ -90,179 +92,83 @@ void Main::doWork()
         skipProcessingOnce = true;
         reuseFrameOnce = true;
     }
-
-    while(imAcqHasMoreFrames(imAcq))
-    {
-        double tic = cvGetTickCount();
-
-        if(!reuseFrameOnce)
-        {
-            img = imAcqGetImg(imAcq);
-
-            if(img == NULL)
-            {
-                printf("current image is NULL, assuming end of input.\n");
-                break;
-            }
-
-            cvtColor(cv::Mat(img), grey, CV_BGR2GRAY);
-        }
-
-        if(!skipProcessingOnce)
-        {
-            tld->processImage(img);
-        }
-        else
-        {
-            skipProcessingOnce = false;
-        }
-
-        if(printResults != NULL)
-        {
-            if(tld->currBB != NULL)
-            {
-                fprintf(resultsFile, "%d %.2d %.2d %.2d %.2d %f\n", imAcq->currentFrame - 1, tld->currBB->x, tld->currBB->y, tld->currBB->width, tld->currBB->height, tld->currConf);
-            }
-            else
-            {
-                fprintf(resultsFile, "%d NaN NaN NaN NaN NaN\n", imAcq->currentFrame - 1);
-            }
-        }
-
-        double toc = (cvGetTickCount() - tic) / cvGetTickFrequency();
-
-        toc = toc / 1000000;
-
-        float fps = 1 / toc;
-
-        int confident = (tld->currConf >= threshold) ? 1 : 0;
-
-        if(showOutput || saveDir != NULL)
-        {
-            char string[128];
-
-            char learningString[10] = "";
-
-            if(tld->learning)
-            {
-                strcpy(learningString, "Learning");
-            }
-
-            sprintf(string, "#%d,Posterior %.2f; fps: %.2f, #numwindows:%d, %s", imAcq->currentFrame - 1, tld->currConf, fps, tld->detectorCascade->numWindows, learningString);
-            CvScalar yellow = CV_RGB(255, 255, 0);
-            CvScalar blue = CV_RGB(0, 0, 255);
-            CvScalar black = CV_RGB(0, 0, 0);
-            CvScalar white = CV_RGB(255, 255, 255);
-
-            if(tld->currBB != NULL)
-            {
-                CvScalar rectangleColor = (confident) ? blue : yellow;
-                cvRectangle(img, tld->currBB->tl(), tld->currBB->br(), rectangleColor, 8, 8, 0);
-            }
-
-            CvFont font;
-            cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, .5, .5, 0, 1, 8);
-            cvRectangle(img, cvPoint(0, 0), cvPoint(img->width, 50), black, CV_FILLED, 8, 0);
-            cvPutText(img, string, cvPoint(25, 25), &font, white);
-
-            if(showForeground)
-            {
-
-                for(size_t i = 0; i < tld->detectorCascade->detectionResult->fgList->size(); i++)
-                {
-                    Rect r = tld->detectorCascade->detectionResult->fgList->at(i);
-                    cvRectangle(img, r.tl(), r.br(), white, 1);
-                }
-
-            }
+    ROS_INFO("Initialized");
+}
 
 
-            if(showOutput)
-            {
-                gui->showImage(img);
-                char key = gui->getKey();
+OpenTLD::Dest Main::destTrack(Mat* imgRef)
+{
+	OpenTLD::Dest curDest;
+	double tic = cvGetTickCount();
 
-                if(key == 'q') break;
+	//cvtColor(*imgRef, *greyRef, CV_BGR2GRAY);
 
-                if(key == 'b')
-                {
+	tld->processImage(*imgRef);
 
-                    ForegroundDetector *fg = tld->detectorCascade->foregroundDetector;
+	if(tld->currBB != NULL)
+	{
+		curDest.destPresent = true;
+		curDest.destX = tld->currBB->x;
+		curDest.destY = tld->currBB->y;
+		curDest.destWidth = tld->currBB->width;
+		curDest.destHeight = tld->currBB->height;
+		ROS_INFO("%.2d %.2d %.2d %.2d %f\n", tld->currBB->x, tld->currBB->y, tld->currBB->width, tld->currBB->height, tld->currConf);
+	}
+	else
+	{
+		curDest.destPresent = false;
+		curDest.destX = -1;
+		curDest.destY = -1;
+		curDest.destWidth = -1;
+		curDest.destHeight = -1;
+		ROS_INFO("NaN NaN NaN NaN NaN\n");
+	}
 
-                    if(fg->bgImg.empty())
-                    {
-                        fg->bgImg = grey.clone();
-                    }
-                    else
-                    {
-                        fg->bgImg.release();
-                    }
-                }
+	double toc = (cvGetTickCount() - tic) / cvGetTickFrequency();
 
-                if(key == 'c')
-                {
-                    //clear everything
-                    tld->release();
-                }
+	toc = toc / 1000000;
 
-                if(key == 'l')
-                {
-                    tld->learningEnabled = !tld->learningEnabled;
-                    printf("LearningEnabled: %d\n", tld->learningEnabled);
-                }
+	float fps = 1 / toc;
 
-                if(key == 'a')
-                {
-                    tld->alternating = !tld->alternating;
-                    printf("alternating: %d\n", tld->alternating);
-                }
+	int confident = (tld->currConf >= threshold) ? 1 : 0;
 
-                if(key == 'e')
-                {
-                    tld->writeToFile(modelExportFile);
-                }
+	if(showOutput)
+	{
+		char string[128];
 
-                if(key == 'i')
-                {
-                    tld->readFromFile(modelPath);
-                }
+		char learningString[10] = "";
 
-                if(key == 'r')
-                {
-                    CvRect box;
+		if(tld->learning)
+		{
+			strcpy(learningString, "Learning");
+		}
 
-                    if(getBBFromUser(img, box, gui) == PROGRAM_EXIT)
-                    {
-                        break;
-                    }
+		sprintf(string, "#%d,Posterior %.2f; fps: %.2f, #numwindows:%d, %s", imAcq->currentFrame - 1, tld->currConf, fps, tld->detectorCascade->numWindows, learningString);
+		CvScalar yellow = CV_RGB(255, 255, 0);
+		CvScalar blue = CV_RGB(0, 0, 255);
+		CvScalar black = CV_RGB(0, 0, 0);
+		CvScalar white = CV_RGB(255, 255, 255);
 
-                    Rect r = Rect(box);
+		if(tld->currBB != NULL)
+		{
+			CvScalar rectangleColor = (confident) ? blue : yellow;
+			rectangle(*imgRef, tld->currBB->tl(), tld->currBB->br(), rectangleColor, 8, 8, 0);
+		}
 
-                    tld->selectObject(grey, &r);
-                }
-            }
+		CvFont font;
+		cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, .5, .5, 0, 1, 8);
+		rectangle(*imgRef, cvPoint(0, 0), cvPoint(imgRef->cols, 50), black, CV_FILLED, 8, 0);
+		putText(*imgRef, string, Point(25,25), 1, 1.0, white, 2, 1, false);
 
-            if(saveDir != NULL)
-            {
-                char fileName[256];
-                sprintf(fileName, "%s/%.5d.png", saveDir, imAcq->currentFrame - 1);
+		if(showForeground)
+		{
 
-                cvSaveImage(fileName, img);
-            }
-        }
-
-        if(!reuseFrameOnce)
-        {
-            cvReleaseImage(&img);
-        }
-        else
-        {
-            reuseFrameOnce = false;
-        }
-    }
-
-    if(exportModelAfterRun)
-    {
-        tld->writeToFile(modelExportFile);
-    }
+			for(size_t i = 0; i < tld->detectorCascade->detectionResult->fgList->size(); i++)
+			{
+				Rect r = tld->detectorCascade->detectionResult->fgList->at(i);
+				rectangle(*imgRef, r.tl(), r.br(), white, 1);
+			}
+		}
+	}
+	return curDest;
 }

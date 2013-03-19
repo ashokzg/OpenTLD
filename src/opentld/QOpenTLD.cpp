@@ -28,12 +28,13 @@
 #include "ImAcq.h"
 #include "Gui.h"
 #include "ConfigDialog.h"
+#include "OpenTLD.h"
 
 using tld::Config;
 using tld::Gui;
 using tld::Settings;
 
-int main(int argc, char **argv)
+int qotldMain(int argc, char **argv)
 {
 
     Main *main = new Main();

@@ -23,17 +23,16 @@ add_library(main
     main/Gui.h
     main/Main.h
     main/Settings.h)
-
+    
 target_link_libraries(main libopentld cvblobs config++ ${OpenCV_LIBS})
 
 #-------------------------------------------------------------------------------
 # opentld
-add_executable(opentld
-    OpenTLD.cpp)
+rosbuild_add_executable(destinationTLD OpenTLD.cpp)
 
-target_link_libraries(opentld main libopentld cvblobs config++ ${OpenCV_LIBS})
+target_link_libraries(destinationTLD main libopentld cvblobs config++ ${OpenCV_LIBS})
 
-install(TARGETS opentld DESTINATION bin)
+install(TARGETS destinationTLD DESTINATION bin)
 
 #-------------------------------------------------------------------------------
 # qopentld

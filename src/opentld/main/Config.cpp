@@ -407,6 +407,7 @@ int Config::init(int argc, char **argv)
 
 int Config::configure(Main *main)
 {
+	/* Commented off since we are using ROS image transport
     ImAcq *imAcq = main->imAcq;
 
     // imAcq
@@ -415,7 +416,7 @@ int Config::configure(Main *main)
     imAcq->lastFrame = m_settings.m_lastFrame;
     imAcq->currentFrame = m_settings.m_startFrame;
     imAcq->camNo = m_settings.m_camNo;
-    imAcq->fps = m_settings.m_fps;
+    imAcq->fps = m_settings.m_fps; */
 
     // main
     main->tld->trackerEnabled = m_settings.m_trackerEnabled;

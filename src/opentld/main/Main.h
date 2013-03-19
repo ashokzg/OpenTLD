@@ -30,6 +30,9 @@
 #include "TLD.h"
 #include "ImAcq.h"
 #include "Gui.h"
+//#include <OpenTLD/Dest.h>
+#include "../../../msg_gen/cpp/include/OpenTLD/Dest.h"  //This is a hack. Replace with proper header
+using namespace cv;
 
 enum Retval
 {
@@ -87,7 +90,8 @@ public:
         imAcqFree(imAcq);
     }
 
-    void doWork();
+    void doWork(OpenTLD::Dest userDest, Mat img);
+    OpenTLD::Dest destTrack(Mat* img);
 };
 
 #endif /* MAIN_H_ */
