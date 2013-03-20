@@ -1,0 +1,10 @@
+#Destination Tracking
+
+#True: Destination Present in Frame #False: Destination absent
+std_msgs/Bool destPresent
+
+#Destination rectangle is given by (x,y) and (x+w, y+h)
+std_msgs/Int32 destX
+std_msgs/Int32 destY
+std_msgs/Int32 destWidth
+std_msgs/Int32 destHeight

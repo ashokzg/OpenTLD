@@ -1,0 +1,25 @@
+import roslib
+roslib.load_manifest('OpenTLD')
+import rospy
+from _Dest import *
+import time
+import sys
+
+def sendDest():
+    pub = rospy.Publisher('UserDestination', Dest)
+    rospy.init_node('TestUser')
+    d = Dest()
+    d.destX = 20
+    d.destY = 20
+    d.destWidth = 50
+    d.destHeight = 50
+    d.destPresent = True
+    pub.publish(d)
+    rospy.sleep(1.0)
+
+
+if __name__ == '__main__':
+    try:
+        sendDest()
+    except rospy.ROSInterruptException:
+        pass
