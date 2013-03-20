@@ -8,4 +8,11 @@ OpenTLDConfig.cmake
 TODO
 cmake_install.cmake
 *.a
-
+.pydevproject
+cmake_install.cmake
+build/
+bin/
+lib/
+msg_gen/
+srv_gen/
+*.pyc
